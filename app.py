@@ -1,4 +1,5 @@
 import os
+import certifi
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -8,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-# Restrict or allow Cross-Origin Resource Sharing for the Next.js ecosystem
+# Restrict or allow Cross Origin Resource Sharing for the Next.js ecosystem
 CORS(app)
 
 # Database Connection Architecture
@@ -16,7 +17,8 @@ MONGO_URI = os.getenv("MONGO_URI")
 db = None
 
 try:
-    client = MongoClient(MONGO_URI)
+    # Use certifi to resolve Render SSL handshake issues
+    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
     # Bind to the central repository database
     db = client.get_database("smartstock")
     print("Connection established with MongoDB Atlas cluster.")
