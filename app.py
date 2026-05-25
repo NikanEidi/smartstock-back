@@ -17,11 +17,18 @@ MONGO_URI = os.getenv("MONGO_URI")
 db = None
 
 try:
-    # Use certifi to resolve Render SSL handshake issues
-    client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
+    # Use certifi and allow invalid certificates to bypass Render's strict SSL/TLS handshake
+    client = MongoClient(
+        MONGO_URI, 
+        tlsCAFile=certifi.where(), 
+        tlsAllowInvalidCertificates=True
+    )
     # Bind to the central repository database
     db = client.get_database("smartstock")
-    print("Connection established with MongoDB Atlas cluster.")
+    
+    # Ping the database to force a real connection check immediately
+    client.admin.command('ping')
+    print("Connection established and verified with MongoDB Atlas cluster.")
 except Exception as e:
     print(f"Critical Error: Failed to bind to remote MongoDB cluster: {e}")
 
