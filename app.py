@@ -1,5 +1,9 @@
 import os
 import certifi
+import jwt
+import bcrypt
+from datetime import datetime, timedelta, timezone
+from functools import wraps
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -14,6 +18,7 @@ CORS(app)
 
 # Database Connection Architecture
 MONGO_URI = os.getenv("MONGO_URI")
+JWT_SECRET = os.getenv("JWT_SECRET", "fallback_secret_key_if_not_found")
 db = None
 
 try:
@@ -32,6 +37,37 @@ try:
 except Exception as e:
     print(f"Critical Error: Failed to bind to remote MongoDB cluster: {e}")
 
+# Core Security Middleware
+
+def token_required(f):
+    """
+    Middleware decorator to protect routes. 
+    Intercepts incoming requests to validate JWT payload against the secret key.
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        # Extract Bearer token from headers
+        if 'Authorization' in request.headers:
+            parts = request.headers['Authorization'].split()
+            if len(parts) == 2 and parts[0] == 'Bearer':
+                token = parts[1]
+        
+        if not token:
+            return jsonify({"error": "Authentication token is missing"}), 401
+            
+        try:
+            # Decode token and attach user identity payload
+            data = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            current_user = db.users.find_one({"email": data["email"]})
+            if not current_user:
+                raise Exception("User not found")
+        except Exception as e:
+            return jsonify({"error": "Authentication token is invalid or expired"}), 401
+            
+        return f(current_user, *args, **kwargs)
+    return decorated
+
 @app.route('/', methods=['GET'])
 def health_check():
     """
@@ -43,7 +79,10 @@ def health_check():
         "database": database_status
     }), 200
 
-# Core AI Module Webhooks and Endpoints
+# Core Authentication & User Management Endpoints
+
+@app.route('/api/users', methods=['POST'])
+
 
 @app.route('/api/chat', methods=['POST'])
 def nlp_assistant():
@@ -104,10 +143,11 @@ def get_inventory_item(item_id):
         return jsonify({"error": f"Failed to retrieve item: {str(e)}"}), 500
 
 @app.route('/api/inventory', methods=['POST'])
-def add_inventory_item():
+@token_required
+def add_inventory_item(current_user):
     """
     Creates a new inventory item.
-    Expects JSON payload with item details.
+    Expects JSON payload with item details. Protected route requiring JWT validation.
     """
     try:
         data = request.json
@@ -124,9 +164,10 @@ def add_inventory_item():
         return jsonify({"error": f"Failed to create item: {str(e)}"}), 500
 
 @app.route('/api/inventory/<int:item_id>', methods=['PUT'])
-def update_inventory_item(item_id):
+@token_required
+def update_inventory_item(current_user, item_id):
     """
-    Updates an existing inventory item.
+    Updates an existing inventory item. Protected route requiring JWT validation.
     """
     try:
         data = request.json
@@ -143,11 +184,16 @@ def update_inventory_item(item_id):
         return jsonify({"error": f"Failed to update item: {str(e)}"}), 500
 
 @app.route('/api/inventory/<int:item_id>', methods=['DELETE'])
-def delete_inventory_item(item_id):
+@token_required
+def delete_inventory_item(current_user, item_id):
     """
-    Deletes an inventory item from the database.
+    Deletes an inventory item from the database. Protected route requiring JWT validation.
     """
     try:
+        # Enforce role-based access control (RBAC) - Only Admins and Managers can delete
+        if current_user["role"] not in ["Admin", "Manager"]:
+            return jsonify({"error": "Insufficient privileges to delete items"}), 403
+
         result = db.inventory_items.delete_one({"item_id": item_id})
         
         if result.deleted_count == 0:
