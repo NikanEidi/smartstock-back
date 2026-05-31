@@ -82,7 +82,77 @@ def health_check():
 # Core Authentication & User Management Endpoints
 
 @app.route('/api/users', methods=['POST'])
+def create_account():
+    """
+    Registers a new administrative or employee account.
+    Expects JSON payload with name, email, password, and role.
+    """
+    try:
+        data = request.json
+        if not all(k in data for k in ("name", "email", "password", "role")):
+            return jsonify({"error": "Missing required fields"}), 400
+            
+        if db.users.find_one({"email": data["email"]}):
+            return jsonify({"error": "User with this email already exists"}), 409
 
+        # Generate cryptographic salt and hash the plaintext password
+        hashed_password = bcrypt.hashpw(data["password"].encode('utf-8'), bcrypt.gensalt())
+        
+        new_user = {
+            "name": data["name"],
+            "email": data["email"],
+            "password": hashed_password.decode('utf-8'),
+            "role": data["role"],
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        db.users.insert_one(new_user)
+        return jsonify({"message": "User account created successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to create account: {str(e)}"}), 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    """
+    Authenticates user credentials and generates a JWT session token.
+    """
+    try:
+        data = request.json
+        if not data or "email" not in data or "password" not in data:
+            return jsonify({"error": "Missing credentials"}), 400
+
+        user = db.users.find_one({"email": data["email"]})
+        
+        # Verify user existence and compare hashed password blocks
+        if user and bcrypt.checkpw(data["password"].encode('utf-8'), user["password"].encode('utf-8')):
+            token_expiration = datetime.now(timezone.utc) + timedelta(hours=24)
+            token = jwt.encode({
+                "email": user["email"],
+                "role": user["role"],
+                "exp": token_expiration
+            }, JWT_SECRET, algorithm="HS256")
+            
+            return jsonify({
+                "message": "Authentication successful",
+                "token": token,
+                "role": user["role"],
+                "name": user["name"]
+            }), 200
+            
+        return jsonify({"error": "Invalid email or password"}), 401
+    except Exception as e:
+        return jsonify({"error": f"Login process failed: {str(e)}"}), 500
+
+@app.route('/api/auth/logout', methods=['POST'])
+@token_required
+def logout(current_user):
+    """
+    Terminates the active session. 
+    Client-side applications must destroy the JWT upon receiving the 200 OK.
+    """
+    return jsonify({"message": f"User {current_user['email']} logged out successfully"}), 200
+
+# Core AI Module Webhooks and Endpoints
 
 @app.route('/api/chat', methods=['POST'])
 def nlp_assistant():
