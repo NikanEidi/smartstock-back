@@ -1,4 +1,5 @@
 import os
+import bcrypt
 from datetime import datetime, timezone
 from pymongo import MongoClient, ASCENDING
 from dotenv import load_dotenv
@@ -18,6 +19,10 @@ def seed_database():
         db = client.get_database("smartstock")
         print("Initializing database collections and seeding sample data...")
 
+        # Generate live cryptographic hashes for testing login endpoints
+        admin_hash = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        manager_hash = bcrypt.hashpw("manager123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
         # 1. Users Collection: Stores credentials and access levels (SRS Section 5.2.1)
         db.users.drop()
         sample_users = [
@@ -25,20 +30,20 @@ def seed_database():
                 "user_id": 1,
                 "name": "Nikan Eidi",
                 "email": "nikan@smartstock.com",
-                "password": "hashed_password_123",
+                "password": admin_hash,
                 "role": "Admin"
             },
             {
                 "user_id": 2,
                 "name": "Jun Ho Jeon",
                 "email": "junho@smartstock.com",
-                "password": "hashed_password_456",
+                "password": manager_hash,
                 "role": "Manager"
             }
         ]
         db.users.insert_many(sample_users)
         db.users.create_index([("email", ASCENDING)], unique=True)
-        print("Users collection seeded with unique index constraint.")
+        print("Users collection seeded with unique index constraint and live hashes.")
 
         # 2. Inventory Items Collection: Tracks physical stock parameters (SRS Section 5.2.2)
         db.inventory_items.drop()
