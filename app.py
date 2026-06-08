@@ -111,6 +111,46 @@ def create_account():
     except Exception as e:
         return jsonify({"error": f"Failed to create account: {str(e)}"}), 500
 
+@app.route('/api/users', methods=['GET'])
+@token_required
+def list_users(current_user):
+    """
+    Returns every registered account for the account-management view.
+    Restricted to the Owner role; password hashes are never exposed.
+    """
+    try:
+        # Only the Owner may oversee user accounts
+        if current_user.get("role") != "Owner":
+            return jsonify({"error": "Insufficient privileges to manage accounts"}), 403
+
+        users = list(db.users.find({}, {"_id": 0, "password": 0}))
+        return jsonify(users), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to retrieve users: {str(e)}"}), 500
+
+@app.route('/api/users/<email>', methods=['DELETE'])
+@token_required
+def delete_user(current_user, email):
+    """
+    Removes a user account by email. Restricted to the Owner role.
+    Owners cannot delete their own account to avoid lockout.
+    """
+    try:
+        if current_user.get("role") != "Owner":
+            return jsonify({"error": "Insufficient privileges to manage accounts"}), 403
+
+        # Guard against an Owner accidentally deleting themselves
+        if current_user.get("email") == email:
+            return jsonify({"error": "You cannot delete your own account"}), 400
+
+        result = db.users.delete_one({"email": email})
+        if result.deleted_count == 0:
+            return jsonify({"error": "User not found"}), 404
+
+        return jsonify({"message": "User account deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete user: {str(e)}"}), 500
+
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     """

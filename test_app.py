@@ -809,6 +809,102 @@ class TestStockAlerts:
 
 
 # ============================================================================
+# USER MANAGEMENT ENDPOINTS TESTS (Owner-only)
+# ============================================================================
+
+class TestListUsers:
+    """Test suite for GET /api/users endpoint (Owner-only)."""
+
+    def test_list_users_owner_success(self, client, mock_db, mock_user, valid_token):
+        """Owner can list all accounts; passwords are excluded by the query."""
+        mock_user["role"] = "Owner"
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.users.find.return_value = [
+            {"user_id": 1, "name": "Nikan Eidi", "email": "nikan@smartstock.com", "role": "Admin"},
+            {"user_id": 2, "name": "Jun Ho Jeon", "email": "junho@smartstock.com", "role": "Manager"},
+        ]
+
+        response = client.get('/api/users',
+                              headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert isinstance(data, list)
+        assert len(data) == 2
+        assert data[0]["email"] == "nikan@smartstock.com"
+
+    def test_list_users_non_owner_forbidden(self, client, mock_db, mock_user, valid_token):
+        """Admin (non-Owner) is forbidden from listing accounts."""
+        mock_user["role"] = "Admin"
+        mock_db.users.find_one.return_value = mock_user
+
+        response = client.get('/api/users',
+                              headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 403
+        data = json.loads(response.data)
+        assert "Insufficient privileges" in data["error"]
+
+    def test_list_users_no_auth(self, client, mock_db):
+        """Listing accounts requires authentication."""
+        response = client.get('/api/users')
+        assert response.status_code == 401
+
+
+class TestDeleteUser:
+    """Test suite for DELETE /api/users/<email> endpoint (Owner-only)."""
+
+    def test_delete_user_owner_success(self, client, mock_db, mock_user, valid_token):
+        """Owner can delete another user's account by email."""
+        mock_user["role"] = "Owner"  # owner email is test@example.com
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.users.delete_one.return_value = Mock(deleted_count=1)
+
+        response = client.delete('/api/users/other@example.com',
+                                 headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert "deleted successfully" in data["message"]
+
+    def test_delete_user_self_blocked(self, client, mock_db, mock_user, valid_token):
+        """Owner cannot delete their own account."""
+        mock_user["role"] = "Owner"  # email test@example.com
+        mock_db.users.find_one.return_value = mock_user
+
+        response = client.delete('/api/users/test@example.com',
+                                 headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert "your own account" in data["error"]
+
+    def test_delete_user_not_found(self, client, mock_db, mock_user, valid_token):
+        """Deleting a non-existent user returns 404."""
+        mock_user["role"] = "Owner"
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.users.delete_one.return_value = Mock(deleted_count=0)
+
+        response = client.delete('/api/users/ghost@example.com',
+                                 headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 404
+        data = json.loads(response.data)
+        assert "not found" in data["error"].lower()
+
+    def test_delete_user_non_owner_forbidden(self, client, mock_db, mock_user, valid_token):
+        """Admin (non-Owner) cannot delete accounts."""
+        mock_user["role"] = "Admin"
+        mock_db.users.find_one.return_value = mock_user
+
+        response = client.delete('/api/users/other@example.com',
+                                 headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 403
+        data = json.loads(response.data)
+        assert "Insufficient privileges" in data["error"]
+
+    def test_delete_user_no_auth(self, client, mock_db):
+        """Deleting a user requires authentication."""
+        response = client.delete('/api/users/other@example.com')
+        assert response.status_code == 401
+
+
+# ============================================================================
 # ERROR HANDLING AND EDGE CASES
 # ============================================================================
 
