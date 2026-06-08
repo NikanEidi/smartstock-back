@@ -14,7 +14,8 @@ While the frontend delivers a seamless BYOD (Bring Your Own Device) experience, 
 
 * **Robust REST API:** Full CRUD operations for inventory items, categories, and stock thresholds.
 * **Stateless Authentication:** Secure JWT-based (JSON Web Token) authentication paired with `bcrypt` password hashing to protect sensitive business data.
-* **Role-Based Access Control (RBAC):** Middleware-enforced authorization separating Admin, Manager, and Employee privileges (e.g., only Admins can delete critical stock records).
+* **Role-Based Access Control (RBAC):** Middleware-enforced authorization separating Admin, Manager, and Employee privileges (e.g., only Admins and Managers can delete critical stock records).
+* **Low-Stock Threshold Alerts:** Per-item minimum thresholds with an evaluation endpoint that surfaces every item at or below its safety floor, ready to drive stockout alert UIs.
 * **Cloud-Native Database:** Fully integrated with MongoDB Atlas for high availability, utilizing PyMongo with custom SSL/TLS bypass configurations for seamless Render deployments.
 * **AI-Ready Architecture:** Pre-scaffolded webhooks and payload receipt pipelines designed for the upcoming integration of NLP (Gemma) and Demand Forecasting (Scikit-Learn) models.
 
@@ -29,6 +30,7 @@ While the frontend delivers a seamless BYOD (Bring Your Own Device) experience, 
 | **Database** | MongoDB Atlas (NoSQL) |
 | **Driver / ORM** | PyMongo |
 | **Security** | PyJWT, bcrypt, Flask-CORS |
+| **Testing** | pytest, pytest-mock |
 | **Hosting** | Render (Gunicorn WSGI) |
 
 ---
@@ -77,6 +79,8 @@ JWT_SECRET=your_super_secure_random_string_here
 
 ```
 
+*Note: The `.env` file holds sensitive credentials and must never be committed. Make sure it is listed in `.gitignore`.*
+
 ### Database Seeding (First-time setup)
 
 Initialize the MongoDB collections, enforce unique indexes, and generate mock data (including hashed admin credentials):
@@ -99,6 +103,17 @@ python app.py
 
 The API will be available at `http://localhost:8000`.
 
+### Testing
+
+The backend ships with a full `pytest` suite covering authentication, inventory CRUD, RBAC, threshold configuration, and stock alerts. Run it from the project root:
+
+```bash
+python -m pytest test_app.py -v
+
+```
+
+*Note: Use `python -m pytest` (rather than a bare `pytest`) to ensure the suite runs inside the active virtual environment. The token fixtures read `JWT_SECRET` directly from the app, so tests pass regardless of the secret configured in your environment.*
+
 ---
 
 ## Core API Endpoints
@@ -109,13 +124,41 @@ The API will be available at `http://localhost:8000`.
 * `POST /api/auth/login` - Authenticate and receive a JWT.
 * `POST /api/auth/logout` - Invalidate client session.
 
-### Inventory (Protected Routes)
+### Inventory
 
 * `GET /api/inventory` - Retrieve all stock items.
 * `GET /api/inventory/<item_id>` - Retrieve a specific item.
 * `POST /api/inventory` - Create a new item (Requires Auth).
-* `PUT /api/inventory/<item_id>` - Update an item (Requires Auth).
-* `DELETE /api/inventory/<item_id>` - Remove an item (Admin only).
+* `PUT /api/inventory/<item_id>` - Modify an item (Requires Auth).
+* `DELETE /api/inventory/<item_id>` - Discard an item (Admin / Manager only).
+
+### Thresholds & Stock Alerts
+
+* `PUT /api/inventory/<item_id>/threshold` - Set or revise an item's `minimum_threshold` (Requires Auth).
+* `GET /api/inventory/alerts` - Retrieve every item sitting at or below its configured threshold.
+
+The alerts endpoint responds with a count and the list of flagged items, ready for a stockout alert UI:
+
+```json
+{
+  "alert_count": 1,
+  "items_at_risk": [
+    {
+      "item_id": 102,
+      "item_name": "Olive Oil",
+      "category": "Groceries",
+      "quantity": 15.0,
+      "minimum_threshold": 20,
+      "expiry_date": null
+    }
+  ]
+}
+```
+
+### AI Modules
+
+* `POST /api/chat` - Natural language operational assistant. Target for the upcoming Gemma NLP integration (currently returns a mocked payload receipt).
+* `POST /api/forecast` - Demand forecasting endpoint. Target for the scikit-learn time-series engine (currently returns a mocked prediction schema).
 
 ---
 
@@ -128,4 +171,3 @@ The backend is currently deployed as a Web Service on **Render**. Pushes to the 
 gunicorn app:app
 
 ```
-
