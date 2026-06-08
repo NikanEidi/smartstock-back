@@ -273,6 +273,58 @@ def delete_inventory_item(current_user, item_id):
     except Exception as e:
         return jsonify({"error": f"Failed to delete item: {str(e)}"}), 500
 
+# Core Threshold Configuration & Stock Alert Endpoints
+
+@app.route('/api/inventory/<int:item_id>/threshold', methods=['PUT'])
+@token_required
+def configure_threshold(current_user, item_id):
+    """
+    Assigns or revises the minimum safety threshold for a single inventory item.
+    Protected route requiring JWT validation.
+    """
+    try:
+        data = request.json
+        if not data or "minimum_threshold" not in data:
+            return jsonify({"error": "Missing required fields (minimum_threshold)"}), 400
+
+        result = db.inventory_items.update_one(
+            {"item_id": item_id},
+            {"$set": {"minimum_threshold": data["minimum_threshold"]}}
+        )
+
+        if result.matched_count == 0:
+            return jsonify({"error": "Item not found"}), 404
+
+        return jsonify({"message": "Threshold configured successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to configure threshold: {str(e)}"}), 500
+
+@app.route('/api/inventory/alerts', methods=['GET'])
+def get_stock_alerts():
+    """
+    Scans the full inventory register and surfaces every item whose quantity
+    has fallen at or below its configured minimum threshold.
+    """
+    try:
+        # Gather all items carrying a defined safety threshold for evaluation
+        items = list(db.inventory_items.find(
+            {"minimum_threshold": {"$ne": None}}, {"_id": 0}
+        ))
+
+        # Isolate the items sitting at or beneath their safety floor
+        low_stock = [
+            item for item in items
+            if item.get("quantity") is not None
+            and item["quantity"] <= item["minimum_threshold"]
+        ]
+
+        return jsonify({
+            "alert_count": len(low_stock),
+            "items_at_risk": low_stock
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to evaluate stock alerts: {str(e)}"}), 500
+
 if __name__ == '__main__':
     runtime_port = int(os.getenv("PORT", 8000))
     # Execute runtime microserver on development configuration flags
