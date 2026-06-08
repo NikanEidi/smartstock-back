@@ -4,7 +4,7 @@ import jwt
 import bcrypt
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch, MagicMock
-from app import app, token_required
+from app import app, token_required, JWT_SECRET
 
 # ============================================================================
 # FIXTURES AND SETUP
@@ -31,7 +31,7 @@ def valid_token():
         "role": "Admin",
         "exp": datetime.now(timezone.utc) + timedelta(hours=24)
     }
-    return jwt.encode(payload, "fallback_secret_key_if_not_found", algorithm="HS256")
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 @pytest.fixture
 def expired_token():
@@ -41,7 +41,7 @@ def expired_token():
         "role": "Admin",
         "exp": datetime.now(timezone.utc) - timedelta(hours=1)
     }
-    return jwt.encode(payload, "fallback_secret_key_if_not_found", algorithm="HS256")
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 @pytest.fixture
 def mock_user():

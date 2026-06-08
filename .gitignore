@@ -1,12 +1,14 @@
 # Environments
 venv/
 env/
+.venv/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
 
 # Environment variables
 .env
