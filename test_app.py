@@ -668,6 +668,147 @@ class TestDeleteInventoryItem:
 
 
 # ============================================================================
+# THRESHOLD CONFIGURATION ENDPOINT TESTS
+# ============================================================================
+
+class TestConfigureThreshold:
+    """Test suite for PUT /api/inventory/<int:item_id>/threshold endpoint."""
+
+    def test_configure_threshold_success(self, client, mock_db, mock_user, valid_token):
+        """Test successfully configuring a minimum threshold for an item."""
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.inventory_items.update_one.return_value = Mock(matched_count=1)
+
+        payload = {"minimum_threshold": 20}
+
+        response = client.put('/api/inventory/1/threshold',
+                              json=payload,
+                              headers={"Authorization": f"Bearer {valid_token}"},
+                              content_type='application/json')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert "configured successfully" in data["message"]
+
+    def test_configure_threshold_missing_field(self, client, mock_db, mock_user, valid_token):
+        """Test configuring threshold without the minimum_threshold field."""
+        mock_db.users.find_one.return_value = mock_user
+
+        response = client.put('/api/inventory/1/threshold',
+                              json={},
+                              headers={"Authorization": f"Bearer {valid_token}"},
+                              content_type='application/json')
+        assert response.status_code == 400
+        data = json.loads(response.data)
+        assert "Missing required fields" in data["error"]
+
+    def test_configure_threshold_item_not_found(self, client, mock_db, mock_user, valid_token):
+        """Test configuring threshold for a non-existent item."""
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.inventory_items.update_one.return_value = Mock(matched_count=0)
+
+        payload = {"minimum_threshold": 10}
+
+        response = client.put('/api/inventory/9999/threshold',
+                              json=payload,
+                              headers={"Authorization": f"Bearer {valid_token}"},
+                              content_type='application/json')
+        assert response.status_code == 404
+        data = json.loads(response.data)
+        assert "not found" in data["error"].lower()
+
+    def test_configure_threshold_no_auth(self, client, mock_db):
+        """Test configuring threshold without authentication."""
+        payload = {"minimum_threshold": 20}
+
+        response = client.put('/api/inventory/1/threshold',
+                              json=payload,
+                              content_type='application/json')
+        assert response.status_code == 401
+        data = json.loads(response.data)
+        assert "missing" in data["error"].lower()
+
+    def test_configure_threshold_invalid_token(self, client, mock_db):
+        """Test configuring threshold with an invalid token."""
+        payload = {"minimum_threshold": 20}
+
+        response = client.put('/api/inventory/1/threshold',
+                              json=payload,
+                              headers={"Authorization": "Bearer invalid_token"},
+                              content_type='application/json')
+        assert response.status_code == 401
+
+
+# ============================================================================
+# STOCK ALERT ENDPOINT TESTS
+# ============================================================================
+
+class TestStockAlerts:
+    """Test suite for GET /api/inventory/alerts endpoint."""
+
+    def test_stock_alerts_below_threshold(self, client, mock_db):
+        """Test that an item below its threshold appears in the alerts."""
+        items = [
+            {"item_id": 102, "item_name": "Olive Oil", "quantity": 15.0, "minimum_threshold": 20}
+        ]
+        mock_db.inventory_items.find.return_value = items
+
+        response = client.get('/api/inventory/alerts')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["alert_count"] == 1
+        assert data["items_at_risk"][0]["item_id"] == 102
+
+    def test_stock_alerts_above_threshold(self, client, mock_db):
+        """Test that an item above its threshold is not flagged."""
+        items = [
+            {"item_id": 101, "item_name": "Fresh Tomatoes", "quantity": 120.5, "minimum_threshold": 30}
+        ]
+        mock_db.inventory_items.find.return_value = items
+
+        response = client.get('/api/inventory/alerts')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["alert_count"] == 0
+        assert len(data["items_at_risk"]) == 0
+
+    def test_stock_alerts_quantity_equals_threshold(self, client, mock_db):
+        """Test that an item sitting exactly on its threshold is flagged."""
+        items = [
+            {"item_id": 5, "item_name": "Boundary Item", "quantity": 5, "minimum_threshold": 5}
+        ]
+        mock_db.inventory_items.find.return_value = items
+
+        response = client.get('/api/inventory/alerts')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["alert_count"] == 1
+
+    def test_stock_alerts_empty_inventory(self, client, mock_db):
+        """Test alerts when no items carry a threshold."""
+        mock_db.inventory_items.find.return_value = []
+
+        response = client.get('/api/inventory/alerts')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["alert_count"] == 0
+        assert data["items_at_risk"] == []
+
+    def test_stock_alerts_mixed_items(self, client, mock_db):
+        """Test alerts with a mix of flagged and healthy items."""
+        items = [
+            {"item_id": 1, "quantity": 3, "minimum_threshold": 10},
+            {"item_id": 2, "quantity": 50, "minimum_threshold": 10},
+            {"item_id": 3, "quantity": 8, "minimum_threshold": 8}
+        ]
+        mock_db.inventory_items.find.return_value = items
+
+        response = client.get('/api/inventory/alerts')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["alert_count"] == 2
+
+
+# ============================================================================
 # ERROR HANDLING AND EDGE CASES
 # ============================================================================
 
