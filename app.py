@@ -417,6 +417,71 @@ def get_stock_alerts():
     except Exception as e:
         return jsonify({"error": f"Failed to evaluate stock alerts: {str(e)}"}), 500
 
+# Core Supplier Sourcing & Price Comparison Endpoints
+
+@app.route('/api/suppliers', methods=['GET'])
+def get_all_suppliers():
+    """
+    Retrieves the full registry of vendors available for sourcing comparisons.
+    """
+    try:
+        # Fetch every supplier, excluding the internal MongoDB object ID field
+        suppliers = list(db.suppliers.find({}, {"_id": 0}))
+        return jsonify(suppliers), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to retrieve suppliers: {str(e)}"}), 500
+
+@app.route('/api/inventory/<int:item_id>/prices', methods=['GET'])
+def get_item_supplier_prices(item_id):
+    """
+    Collects every vendor price recorded for a single inventory item, attaches
+    the supplier identity metadata, orders the offers from cheapest to dearest,
+    and flags the single best offer for the procurement comparison view.
+    """
+    try:
+        # Gather every price row tied to this specific item
+        price_records = list(db.supplier_prices.find({"item_id": item_id}, {"_id": 0}))
+
+        # Short-circuit when no vendor has quoted this item yet
+        if not price_records:
+            return jsonify({
+                "item_id": item_id,
+                "offer_count": 0,
+                "best_price": None,
+                "offers": []
+            }), 200
+
+        # Build a lookup of supplier identity metadata for enrichment
+        suppliers = list(db.suppliers.find({}, {"_id": 0}))
+        supplier_lookup = {s["supplier_id"]: s for s in suppliers}
+
+        # Normalize each raw price row into a comparable offer shape
+        offers = []
+        for record in price_records:
+            supplier = supplier_lookup.get(record.get("supplier_id"), {})
+            offers.append({
+                "supplier_id": record.get("supplier_id"),
+                "supplier_name": supplier.get("supplier_name", "Unknown Supplier"),
+                "price": record.get("price"),
+                "last_updated": record.get("last_updated"),
+                "is_lowest": False
+            })
+
+        # Order the offers from cheapest to most expensive
+        offers.sort(key=lambda o: o["price"])
+
+        # Flag the cheapest offer for the highlighting logic on the frontend
+        offers[0]["is_lowest"] = True
+
+        return jsonify({
+            "item_id": item_id,
+            "offer_count": len(offers),
+            "best_price": offers[0]["price"],
+            "offers": offers
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to retrieve supplier prices: {str(e)}"}), 500
+
 if __name__ == '__main__':
     runtime_port = int(os.getenv("PORT", 8000))
     # Execute runtime microserver on development configuration flags

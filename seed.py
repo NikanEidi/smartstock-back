@@ -92,6 +92,18 @@ def seed_database():
                 "supplier_name": "Ontario Local Foods Inc",
                 "contact_info": "orders@ontariolocal.ca",
                 "location": "Newmarket, ON"
+            },
+            {
+                "supplier_id": 2,
+                "supplier_name": "Fresh Valley Distributors",
+                "contact_info": "sales@freshvalley.ca",
+                "location": "Vaughan, ON"
+            },
+            {
+                "supplier_id": 3,
+                "supplier_name": "Metro Wholesale Grocers",
+                "contact_info": "wholesale@metrogrocers.ca",
+                "location": "Mississauga, ON"
             }
         ]
         db.suppliers.insert_many(sample_suppliers)
@@ -100,14 +112,54 @@ def seed_database():
         # 5. Supplier Prices Collection: Holds metrics for real-time cost comparison (SRS Section 5.2.4)
         db.supplier_prices.drop()
         sample_prices = [
+            # Competing vendor offers for Fresh Tomatoes (item_id 101)
             {
                 "price_id": 901,
                 "supplier_id": 1,
+                "item_id": 101,
                 "price": 2.45,
+                "last_updated": datetime.now(timezone.utc)
+            },
+            {
+                "price_id": 902,
+                "supplier_id": 2,
+                "item_id": 101,
+                "price": 2.10,
+                "last_updated": datetime.now(timezone.utc)
+            },
+            {
+                "price_id": 903,
+                "supplier_id": 3,
+                "item_id": 101,
+                "price": 2.80,
+                "last_updated": datetime.now(timezone.utc)
+            },
+            # Competing vendor offers for Olive Oil (item_id 102)
+            {
+                "price_id": 904,
+                "supplier_id": 1,
+                "item_id": 102,
+                "price": 8.50,
+                "last_updated": datetime.now(timezone.utc)
+            },
+            {
+                "price_id": 905,
+                "supplier_id": 2,
+                "item_id": 102,
+                "price": 9.00,
+                "last_updated": datetime.now(timezone.utc)
+            },
+            {
+                "price_id": 906,
+                "supplier_id": 3,
+                "item_id": 102,
+                "price": 7.95,
                 "last_updated": datetime.now(timezone.utc)
             }
         ]
         db.supplier_prices.insert_many(sample_prices)
+        # Index the item linkage so per-item price lookups stay fast
+        db.supplier_prices.create_index([("item_id", ASCENDING)])
         print("Supplier Prices evaluation metrics seeded.")
 
         # 6. Demand Forecasts Collection: Destination for AI forecasting analytics (SRS Section 5.2.3)
