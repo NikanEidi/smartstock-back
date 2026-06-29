@@ -343,7 +343,7 @@ class TestNLPAssistant:
 def _build_history(item_id=42, points=12):
     """Build a mock historical_data series for the forecast pipeline."""
     base = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    # A gently rising series with one outlier so the IQR filter has work to do
+    
     quantities = [40, 42, 41, 45, 47, 46, 200, 50, 52, 51, 55, 57]
     return [
         {
@@ -361,7 +361,7 @@ class TestDemandForecast:
     def test_forecast_with_item_id(self, client, mock_db, mock_user, valid_token):
         """Test forecast endpoint with a valid token and historical data."""
         mock_db.users.find_one.return_value = mock_user
-        # The endpoint chains .find(...).sort("date", 1); mock the chain's result
+      
         mock_db.historical_data.find.return_value.sort.return_value = _build_history(42)
 
         payload = {"item_id": 42}
@@ -937,6 +937,94 @@ class TestDeleteUser:
         """Deleting a user requires authentication."""
         response = client.delete('/api/users/other@example.com')
         assert response.status_code == 401
+
+# ============================================================================
+# SUPPLIER SOURCING & PRICE COMPARISON ENDPOINT TESTS
+# ============================================================================
+
+class TestGetSuppliers:
+    """Test suite for GET /api/suppliers endpoint."""
+
+    def test_get_all_suppliers_success(self, client, mock_db):
+        """Test retrieving the full supplier registry."""
+        suppliers = [
+            {"supplier_id": 1, "supplier_name": "Ontario Local Foods Inc"},
+            {"supplier_id": 2, "supplier_name": "Fresh Valley Distributors"},
+        ]
+        mock_db.suppliers.find.return_value = suppliers
+
+        response = client.get('/api/suppliers')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert isinstance(data, list)
+        assert len(data) == 2
+        assert data[0]["supplier_name"] == "Ontario Local Foods Inc"
+
+    def test_get_all_suppliers_empty(self, client, mock_db):
+        """Test retrieving suppliers when the registry is empty."""
+        mock_db.suppliers.find.return_value = []
+
+        response = client.get('/api/suppliers')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data == []
+
+
+class TestItemSupplierPrices:
+    """Test suite for GET /api/inventory/<int:item_id>/prices endpoint."""
+
+    def test_prices_sorted_and_lowest_flagged(self, client, mock_db):
+        """Test that offers come back cheapest-first with the best one flagged."""
+        prices = [
+            {"supplier_id": 1, "item_id": 101, "price": 2.45, "last_updated": "2026-06-01"},
+            {"supplier_id": 2, "item_id": 101, "price": 2.10, "last_updated": "2026-06-01"},
+            {"supplier_id": 3, "item_id": 101, "price": 2.80, "last_updated": "2026-06-01"},
+        ]
+        suppliers = [
+            {"supplier_id": 1, "supplier_name": "Ontario Local Foods Inc"},
+            {"supplier_id": 2, "supplier_name": "Fresh Valley Distributors"},
+            {"supplier_id": 3, "supplier_name": "Metro Wholesale Grocers"},
+        ]
+        mock_db.supplier_prices.find.return_value = prices
+        mock_db.suppliers.find.return_value = suppliers
+
+        response = client.get('/api/inventory/101/prices')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["item_id"] == 101
+        assert data["offer_count"] == 3
+        assert data["best_price"] == 2.10
+        # Offers are ordered from cheapest to most expensive
+        assert [o["price"] for o in data["offers"]] == [2.10, 2.45, 2.80]
+        # Only the cheapest offer carries the lowest flag
+        assert data["offers"][0]["is_lowest"] is True
+        assert data["offers"][0]["supplier_name"] == "Fresh Valley Distributors"
+        assert all(o["is_lowest"] is False for o in data["offers"][1:])
+
+    def test_prices_no_offers(self, client, mock_db):
+        """Test the response shape when no vendor has quoted the item."""
+        mock_db.supplier_prices.find.return_value = []
+
+        response = client.get('/api/inventory/999/prices')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["offer_count"] == 0
+        assert data["best_price"] is None
+        assert data["offers"] == []
+
+    def test_prices_unknown_supplier(self, client, mock_db):
+        """Test that a price with no matching supplier falls back gracefully."""
+        prices = [
+            {"supplier_id": 99, "item_id": 101, "price": 5.00, "last_updated": "2026-06-01"},
+        ]
+        mock_db.supplier_prices.find.return_value = prices
+        mock_db.suppliers.find.return_value = []
+
+        response = client.get('/api/inventory/101/prices')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["offers"][0]["supplier_name"] == "Unknown Supplier"
+        assert data["offers"][0]["is_lowest"] is True
 
 
 # ============================================================================
