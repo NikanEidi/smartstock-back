@@ -340,39 +340,74 @@ class TestNLPAssistant:
 # FORECAST ENDPOINT TESTS
 # ============================================================================
 
+def _build_history(item_id=42, points=12):
+    """Build a mock historical_data series for the forecast pipeline."""
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    # A gently rising series with one outlier so the IQR filter has work to do
+    quantities = [40, 42, 41, 45, 47, 46, 200, 50, 52, 51, 55, 57]
+    return [
+        {
+            "item_id": item_id,
+            "date": base + timedelta(days=7 * i),
+            "quantity_sold": quantities[i % len(quantities)],
+        }
+        for i in range(points)
+    ]
+
+
 class TestDemandForecast:
-    """Test suite for POST /api/forecast endpoint."""
+    """Test suite for POST /api/forecast endpoint (JWT-protected, DB-backed)."""
 
-    def test_forecast_with_item_id(self, client):
-        """Test forecast endpoint with valid item ID."""
+    def test_forecast_with_item_id(self, client, mock_db, mock_user, valid_token):
+        """Test forecast endpoint with a valid token and historical data."""
+        mock_db.users.find_one.return_value = mock_user
+        # The endpoint chains .find(...).sort("date", 1); mock the chain's result
+        mock_db.historical_data.find.return_value.sort.return_value = _build_history(42)
+
         payload = {"item_id": 42}
-
         response = client.post('/api/forecast',
                                json=payload,
+                               headers={"Authorization": f"Bearer {valid_token}"},
                                content_type='application/json')
         assert response.status_code == 200
         data = json.loads(response.data)
-        assert "item_id" in data
         assert data["item_id"] == 42
         assert "predicted_demand" in data
         assert "confidence_level" in data
         assert isinstance(data["predicted_demand"], (int, float))
         assert isinstance(data["confidence_level"], (int, float))
+        assert 0.0 <= data["confidence_level"] <= 1.0
 
-    def test_forecast_without_item_id(self, client):
-        """Test forecast endpoint without item ID."""
+    def test_forecast_no_historical_data(self, client, mock_db, mock_user, valid_token):
+        """Test forecast returns 404 when the item has no historical data."""
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.historical_data.find.return_value.sort.return_value = []
+
+        payload = {"item_id": 9999}
         response = client.post('/api/forecast',
-                               json={},
+                               json=payload,
+                               headers={"Authorization": f"Bearer {valid_token}"},
                                content_type='application/json')
-        assert response.status_code == 200
+        assert response.status_code == 404
         data = json.loads(response.data)
-        assert data["item_id"] is None
-        assert "predicted_demand" in data
+        assert "No historical data" in data["error"]
 
-    def test_forecast_no_json_body(self, client):
-        """Test forecast endpoint with no JSON body."""
-        response = client.post('/api/forecast')
-        assert response.status_code == 415
+    def test_forecast_no_auth(self, client, mock_db):
+        """Test forecast endpoint rejects requests without a token."""
+        response = client.post('/api/forecast',
+                               json={"item_id": 42},
+                               content_type='application/json')
+        assert response.status_code == 401
+        data = json.loads(response.data)
+        assert "missing" in data["error"].lower()
+
+    def test_forecast_invalid_token(self, client, mock_db):
+        """Test forecast endpoint rejects an invalid token."""
+        response = client.post('/api/forecast',
+                               json={"item_id": 42},
+                               headers={"Authorization": "Bearer invalid_token"},
+                               content_type='application/json')
+        assert response.status_code == 401
 
 # ============================================================================
 # INVENTORY ENDPOINTS TESTS
