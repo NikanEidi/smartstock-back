@@ -1280,5 +1280,30 @@ class TestIntegration:
         assert delete_response.status_code == 200
 
 
+class TestIntentModel:
+    """Unit tests for the level-2 TF-IDF + cosine intent classifier."""
+
+    def test_classifies_low_stock_paraphrase(self):
+        import intent_model
+        intent, score = intent_model.classify("which products are running low")
+        assert intent == "low_stock"
+        assert score >= intent_model.DEFAULT_THRESHOLD
+
+    def test_classifies_greeting(self):
+        import intent_model
+        intent, _ = intent_model.classify("hey there")
+        assert intent == "greeting"
+
+    def test_gibberish_below_threshold(self):
+        import intent_model
+        intent, score = intent_model.classify("xzq wqp lmn nonsense")
+        assert intent is None
+        assert score < intent_model.DEFAULT_THRESHOLD
+
+    def test_empty_message_returns_none(self):
+        import intent_model
+        assert intent_model.classify("") == (None, 0.0)
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
