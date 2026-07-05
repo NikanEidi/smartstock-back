@@ -364,6 +364,111 @@ class TestNLPAssistant:
         response = client.post('/api/chat')
         assert response.status_code == 415
 
+    def _ask(self, client, message):
+        """Helper: post a chat message and return the parsed JSON body."""
+        response = client.post('/api/chat',
+                               json={"message": message},
+                               content_type='application/json')
+        assert response.status_code == 200
+        return json.loads(response.data)
+
+    def test_chat_expiring_soon(self, client, mock_db):
+        """Expiring question lists items sorted by expiry date."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes",
+             "expiry_date": datetime(2026, 5, 25, tzinfo=timezone.utc)},
+        ]
+        data = self._ask(client, "what is expiring soon?")
+        assert data["source"] == "rules"
+        assert "Fresh Tomatoes" in data["response"]
+        assert "2026-05-25" in data["response"]
+
+    def test_chat_cheapest_supplier(self, client, mock_db):
+        """Cheapest question resolves a partial item name and lowest price."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes", "item_id": 101},
+        ]
+        mock_db.supplier_prices.find.return_value = [
+            {"supplier_id": 2, "price": 2.10},
+            {"supplier_id": 1, "price": 2.45},
+        ]
+        mock_db.suppliers.find_one.return_value = {"supplier_name": "Fresh Valley"}
+        data = self._ask(client, "cheapest supplier for tomatoes")
+        assert data["source"] == "rules"
+        assert "Fresh Valley" in data["response"]
+        assert "2.1" in data["response"]
+
+    def test_chat_supplier_list(self, client, mock_db):
+        """Supplier question lists every registered vendor."""
+        mock_db.suppliers.find.return_value = [
+            {"supplier_name": "Alpha"},
+            {"supplier_name": "Beta"},
+        ]
+        data = self._ask(client, "who are our suppliers?")
+        assert data["source"] == "rules"
+        assert "Alpha" in data["response"]
+        assert "Beta" in data["response"]
+
+    def test_chat_waste_report(self, client, mock_db):
+        """Waste question sums quantity_wasted across records."""
+        mock_db.historical_data.find.return_value = [
+            {"quantity_wasted": 10},
+            {"quantity_wasted": 5.5},
+        ]
+        data = self._ask(client, "total waste this month")
+        assert data["source"] == "rules"
+        assert "15.5" in data["response"]
+        assert "2 record" in data["response"]
+
+    def test_chat_items_by_category(self, client, mock_db):
+        """Category question lists the items in a named category."""
+        mock_db.inventory_items.distinct.return_value = ["Produce"]
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes"},
+        ]
+        data = self._ask(client, "what's in produce?")
+        assert data["source"] == "rules"
+        assert "Produce" in data["response"]
+        assert "Fresh Tomatoes" in data["response"]
+
+    def test_chat_list_categories(self, client, mock_db):
+        """Categories question lists the distinct categories."""
+        mock_db.inventory_items.distinct.return_value = ["Produce", "Groceries"]
+        data = self._ask(client, "what categories do we have?")
+        assert data["source"] == "rules"
+        assert "Produce" in data["response"]
+        assert "Groceries" in data["response"]
+
+    def test_chat_count_items(self, client, mock_db):
+        """Count question reports the inventory item count."""
+        mock_db.inventory_items.count_documents.return_value = 5
+        data = self._ask(client, "item count please")
+        assert data["source"] == "rules"
+        assert "5" in data["response"]
+
+    def test_chat_list_items(self, client, mock_db):
+        """List question names every inventory item."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Olive Oil"},
+            {"item_name": "Fresh Tomatoes"},
+        ]
+        data = self._ask(client, "list all items")
+        assert data["source"] == "rules"
+        assert "Olive Oil" in data["response"]
+        assert "Fresh Tomatoes" in data["response"]
+
+    def test_chat_greeting(self, client):
+        """Greeting returns a friendly welcome without touching the db."""
+        data = self._ask(client, "hello")
+        assert data["source"] == "rules"
+        assert "Hi!" in data["response"]
+
+    def test_chat_help(self, client):
+        """Help explains what the assistant can answer."""
+        data = self._ask(client, "what can you do?")
+        assert data["source"] == "rules"
+        assert "low stock" in data["response"]
+
 # ============================================================================
 # FORECAST ENDPOINT TESTS
 # ============================================================================

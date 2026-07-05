@@ -35,6 +35,25 @@ While the frontend delivers a seamless BYOD (Bring Your Own Device) experience, 
 
 ---
 
+## Project Structure
+
+```
+smartstock-back/
+├── app.py              # Flask app: routes, db connection, auth middleware
+├── chatbot.py          # /api/chat level-1 rule-based intent layer
+├── seed.py             # Seed collections, indexes, and mock data
+├── prepare_ai_data.py  # Build historical_data from the Kaggle dataset
+├── test_app.py         # pytest suite (mocks the database)
+├── requirements.txt
+└── .github/workflows/  # CI: run the pytest suite on push and PRs
+```
+
+Route handlers stay thin in `app.py` and delegate heavier logic to dedicated
+modules (e.g. `chatbot.py`), which take the `db` handle as an argument so they
+stay independent of the Flask app and easy to test.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
