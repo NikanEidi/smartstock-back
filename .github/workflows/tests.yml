@@ -22,4 +22,4 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run tests
-        run: python -m pytest test_app.py -v
+        run: python -m pytest -v
