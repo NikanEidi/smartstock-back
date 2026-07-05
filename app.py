@@ -201,7 +201,7 @@ def logout(current_user):
 def nlp_assistant():
     """
     Answers operational questions from live inventory data.
-    Level 1 rules live in chatbot.py; the model layer will fall in behind them.
+    Routing lives in chatbot.py: level-1 rules, then the level-2 model.
     """
     payload = request.json or {}
     user_query = payload.get("message", "")
