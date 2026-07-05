@@ -297,9 +297,9 @@ class TestLogout:
 class TestNLPAssistant:
     """Test suite for POST /api/chat endpoint."""
 
-    def test_chat_with_message(self, client):
-        """Test chat endpoint with a message."""
-        payload = {"message": "What is the current inventory?"}
+    def test_chat_unmatched_falls_back(self, client):
+        """A message that matches no rule returns the fallback reply."""
+        payload = {"message": "tell me a joke"}
 
         response = client.post('/api/chat',
                                json=payload,
@@ -307,9 +307,37 @@ class TestNLPAssistant:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert "response" in data
-        assert "source" in data
-        assert "Operations NLP Architecture" in data["source"]
-        assert "What is the current inventory?" in data["response"]
+        assert data["source"] == "fallback"
+
+    def test_chat_low_stock_intent(self, client, mock_db):
+        """A low-stock question lists items at or below their threshold."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Olive Oil", "quantity": 3, "minimum_threshold": 5},
+            {"item_name": "Tomatoes", "quantity": 50, "minimum_threshold": 10},
+        ]
+
+        response = client.post('/api/chat',
+                               json={"message": "what is running low?"},
+                               content_type='application/json')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["source"] == "rules"
+        assert "Olive Oil" in data["response"]
+        assert "Tomatoes" not in data["response"]
+
+    def test_chat_item_quantity_intent(self, client, mock_db):
+        """An item-quantity question reports that item's current stock."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Olive Oil", "quantity": 15},
+        ]
+
+        response = client.post('/api/chat',
+                               json={"message": "how much olive oil do we have?"},
+                               content_type='application/json')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["source"] == "rules"
+        assert "Olive Oil: 15" in data["response"]
 
     def test_chat_empty_message(self, client):
         """Test chat endpoint with empty message."""
@@ -335,6 +363,145 @@ class TestNLPAssistant:
         """Test chat endpoint with no JSON body."""
         response = client.post('/api/chat')
         assert response.status_code == 415
+
+    def _ask(self, client, message):
+        """Helper: post a chat message and return the parsed JSON body."""
+        response = client.post('/api/chat',
+                               json={"message": message},
+                               content_type='application/json')
+        assert response.status_code == 200
+        return json.loads(response.data)
+
+    def test_chat_item_quantity_partial_name(self, client, mock_db):
+        """A singular/partial item name still resolves (tomato -> Fresh Tomatoes)."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes", "quantity": 120},
+        ]
+        data = self._ask(client, "how much tomato do we have?")
+        assert data["source"] == "rules"
+        assert "Fresh Tomatoes: 120" in data["response"]
+
+    def test_chat_expiring_soon(self, client, mock_db):
+        """Expiring question lists items sorted by expiry date."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes",
+             "expiry_date": datetime(2026, 5, 25, tzinfo=timezone.utc)},
+        ]
+        data = self._ask(client, "what is expiring soon?")
+        assert data["source"] == "rules"
+        assert "Fresh Tomatoes" in data["response"]
+        assert "2026-05-25" in data["response"]
+
+    def test_chat_cheapest_supplier(self, client, mock_db):
+        """Cheapest question resolves a partial item name and lowest price."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes", "item_id": 101},
+        ]
+        mock_db.supplier_prices.find.return_value = [
+            {"supplier_id": 2, "price": 2.10},
+            {"supplier_id": 1, "price": 2.45},
+        ]
+        mock_db.suppliers.find_one.return_value = {"supplier_name": "Fresh Valley"}
+        data = self._ask(client, "cheapest supplier for tomatoes")
+        assert data["source"] == "rules"
+        assert "Fresh Valley" in data["response"]
+        assert "2.1" in data["response"]
+
+    def test_chat_supplier_list(self, client, mock_db):
+        """Supplier question lists every registered vendor."""
+        mock_db.suppliers.find.return_value = [
+            {"supplier_name": "Alpha"},
+            {"supplier_name": "Beta"},
+        ]
+        data = self._ask(client, "who are our suppliers?")
+        assert data["source"] == "rules"
+        assert "Alpha" in data["response"]
+        assert "Beta" in data["response"]
+
+    def test_chat_waste_report(self, client, mock_db):
+        """Waste question sums quantity_wasted across records."""
+        mock_db.historical_data.find.return_value = [
+            {"quantity_wasted": 10},
+            {"quantity_wasted": 5.5},
+        ]
+        data = self._ask(client, "total waste this month")
+        assert data["source"] == "rules"
+        assert "15.5" in data["response"]
+        assert "2 record" in data["response"]
+
+    def test_chat_items_by_category(self, client, mock_db):
+        """Category question lists the items in a named category."""
+        mock_db.inventory_items.distinct.return_value = ["Produce"]
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes"},
+        ]
+        data = self._ask(client, "what's in produce?")
+        assert data["source"] == "rules"
+        assert "Produce" in data["response"]
+        assert "Fresh Tomatoes" in data["response"]
+
+    def test_chat_list_categories(self, client, mock_db):
+        """Categories question lists the distinct categories."""
+        mock_db.inventory_items.distinct.return_value = ["Produce", "Groceries"]
+        data = self._ask(client, "what categories do we have?")
+        assert data["source"] == "rules"
+        assert "Produce" in data["response"]
+        assert "Groceries" in data["response"]
+
+    def test_chat_count_items(self, client, mock_db):
+        """Count question reports the inventory item count."""
+        mock_db.inventory_items.count_documents.return_value = 5
+        data = self._ask(client, "item count please")
+        assert data["source"] == "rules"
+        assert "5" in data["response"]
+
+    def test_chat_list_items(self, client, mock_db):
+        """List question names every inventory item."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Olive Oil"},
+            {"item_name": "Fresh Tomatoes"},
+        ]
+        data = self._ask(client, "list all items")
+        assert data["source"] == "rules"
+        assert "Olive Oil" in data["response"]
+        assert "Fresh Tomatoes" in data["response"]
+
+    def test_chat_sales_trend(self, client, mock_db):
+        """Sales question compares recent vs earlier quantity_sold for an item."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes", "item_id": 101},
+        ]
+        mock_db.historical_data.find.return_value = [
+            {"date": datetime(2026, 1, 1, tzinfo=timezone.utc), "quantity_sold": 100},
+            {"date": datetime(2026, 1, 8, tzinfo=timezone.utc), "quantity_sold": 100},
+            {"date": datetime(2026, 1, 15, tzinfo=timezone.utc), "quantity_sold": 150},
+            {"date": datetime(2026, 1, 22, tzinfo=timezone.utc), "quantity_sold": 150},
+        ]
+        data = self._ask(client, "how are tomato sales?")
+        assert data["source"] == "rules"
+        assert "Fresh Tomatoes" in data["response"]
+        assert "up" in data["response"]
+
+    def test_chat_model_level_two(self, client, mock_db):
+        """A phrase the rules miss is caught by the level-2 model (source=model)."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Olive Oil", "quantity": 3, "minimum_threshold": 5},
+        ]
+        data = self._ask(client, "which products are almost gone")
+        assert data["source"] == "model"
+        assert "Olive Oil" in data["response"]
+
+    def test_chat_greeting(self, client):
+        """Greeting returns a friendly welcome without touching the db."""
+        data = self._ask(client, "hello")
+        assert data["source"] == "rules"
+        assert "Hi!" in data["response"]
+
+    def test_chat_help(self, client):
+        """Help explains what the assistant can answer."""
+        data = self._ask(client, "what can you do?")
+        assert data["source"] == "rules"
+        assert "low stock" in data["response"]
 
 # ============================================================================
 # FORECAST ENDPOINT TESTS
@@ -1120,6 +1287,31 @@ class TestIntegration:
         delete_response = client.delete('/api/inventory/1',
                                         headers={"Authorization": f"Bearer {valid_token}"})
         assert delete_response.status_code == 200
+
+
+class TestIntentModel:
+    """Unit tests for the level-2 TF-IDF + cosine intent classifier."""
+
+    def test_classifies_low_stock_paraphrase(self):
+        import intent_model
+        intent, score = intent_model.classify("which products are running low")
+        assert intent == "low_stock"
+        assert score >= intent_model.DEFAULT_THRESHOLD
+
+    def test_classifies_greeting(self):
+        import intent_model
+        intent, _ = intent_model.classify("hey there")
+        assert intent == "greeting"
+
+    def test_gibberish_below_threshold(self):
+        import intent_model
+        intent, score = intent_model.classify("xzq wqp lmn nonsense")
+        assert intent is None
+        assert score < intent_model.DEFAULT_THRESHOLD
+
+    def test_empty_message_returns_none(self):
+        import intent_model
+        assert intent_model.classify("") == (None, 0.0)
 
 
 if __name__ == '__main__':

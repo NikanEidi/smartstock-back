@@ -35,6 +35,29 @@ While the frontend delivers a seamless BYOD (Bring Your Own Device) experience, 
 
 ---
 
+## Project Structure
+
+```
+smartstock-back/
+├── app.py              # Flask app: routes, db connection, auth middleware
+├── chatbot.py          # /api/chat rules (level 1) + model routing (level 2)
+├── intent_model.py     # TF-IDF + cosine intent classifier (level 2)
+├── intents.json        # Example phrases per intent (grow this to improve)
+├── forecast.py         # /api/forecast RandomForest demand pipeline
+├── seed.py             # Seed collections, indexes, and mock data
+├── prepare_ai_data.py  # Build historical_data from the Kaggle dataset
+├── test_app.py         # pytest suite for the API (mocks the database)
+├── test_chatbot.py     # Focused chatbot robustness suite
+├── requirements.txt
+└── .github/workflows/  # CI: run the pytest suite on push and PRs
+```
+
+Route handlers stay thin in `app.py` and delegate heavier logic to dedicated
+modules (e.g. `chatbot.py`), which take the `db` handle as an argument so they
+stay independent of the Flask app and easy to test.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -48,7 +71,7 @@ While the frontend delivers a seamless BYOD (Bring Your Own Device) experience, 
 1. Clone the repository and navigate to the project folder:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/NikanEidi/smartstock-back.git
 cd smartstock-back
 
 ```
@@ -157,7 +180,7 @@ The alerts endpoint responds with a count and the list of flagged items, ready f
 
 ### AI Modules
 
-* `POST /api/chat` - Natural language operational assistant. Target for the upcoming Gemma NLP integration (currently returns a mocked payload receipt).
+* `POST /api/chat` - Natural language operational assistant. Level 1 rule-based intent matching over live data, covering low stock, item quantity, item count, listing items/categories, items by category, suppliers, cheapest price, expiring items, sales trends, waste totals, plus greeting/help. When the rules miss, a level-2 TF-IDF + cosine-similarity model (`intent_model.py`, trained on `intents.json`) classifies the intent and the same handler answers.
 * `POST /api/forecast` - Demand forecasting endpoint. Target for the scikit-learn time-series engine (currently returns a mocked prediction schema).
 
 ---
