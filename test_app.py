@@ -466,6 +466,22 @@ class TestNLPAssistant:
         assert "Olive Oil" in data["response"]
         assert "Fresh Tomatoes" in data["response"]
 
+    def test_chat_sales_trend(self, client, mock_db):
+        """Sales question compares recent vs earlier quantity_sold for an item."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes", "item_id": 101},
+        ]
+        mock_db.historical_data.find.return_value = [
+            {"date": datetime(2026, 1, 1, tzinfo=timezone.utc), "quantity_sold": 100},
+            {"date": datetime(2026, 1, 8, tzinfo=timezone.utc), "quantity_sold": 100},
+            {"date": datetime(2026, 1, 15, tzinfo=timezone.utc), "quantity_sold": 150},
+            {"date": datetime(2026, 1, 22, tzinfo=timezone.utc), "quantity_sold": 150},
+        ]
+        data = self._ask(client, "how are tomato sales?")
+        assert data["source"] == "rules"
+        assert "Fresh Tomatoes" in data["response"]
+        assert "up" in data["response"]
+
     def test_chat_greeting(self, client):
         """Greeting returns a friendly welcome without touching the db."""
         data = self._ask(client, "hello")

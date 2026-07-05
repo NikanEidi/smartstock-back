@@ -86,6 +86,31 @@ def _intent_waste_report(db, message):
     total = sum(record.get("quantity_wasted", 0) or 0 for record in records)
     return f"Total recorded waste is {round(total, 2)} units across {len(records)} record(s)."
 
+def _intent_sales_trend(db, message):
+    """Compare recent vs earlier sales for an item named in the message."""
+    item = _find_named_item(list(db.inventory_items.find({}, {"_id": 0})), message)
+    if not item:
+        return None
+    history = list(db.historical_data.find(
+        {"item_id": item["item_id"]}, {"_id": 0, "quantity_sold": 1, "date": 1}
+    ))
+    if len(history) < 2:
+        return f"Not enough sales history for {item['item_name']} yet."
+    history.sort(key=lambda record: record["date"])
+    half = len(history) // 2
+    earlier = [record["quantity_sold"] for record in history[:half]]
+    recent = [record["quantity_sold"] for record in history[half:]]
+    earlier_avg = sum(earlier) / len(earlier)
+    recent_avg = sum(recent) / len(recent)
+    if earlier_avg == 0:
+        trend, change = ("up" if recent_avg > 0 else "flat"), ""
+    else:
+        pct = (recent_avg - earlier_avg) / earlier_avg * 100
+        trend = "up" if pct > 0 else ("down" if pct < 0 else "flat")
+        change = f" {abs(round(pct))}%" if pct else ""
+    return (f"{item['item_name']} sales are {trend}{change} recently "
+            f"(avg {round(recent_avg)} vs {round(earlier_avg)} per period).")
+
 def _intent_items_by_category(db, message):
     """List the items belonging to a category named in the message."""
     for category in db.inventory_items.distinct("category"):
@@ -123,7 +148,7 @@ def _intent_help(db, message):
     """Explain what the assistant can answer."""
     return ("I can help with low stock, item quantity, item count, listing "
             "items or categories, suppliers, cheapest price, expiring items, "
-            "and waste totals.")
+            "sales trends, and waste totals.")
 
 # Ordered rules: first keyword hit whose handler returns an answer wins.
 # More specific intents come first; a handler that returns None lets the
@@ -135,6 +160,7 @@ CHAT_RULES = [
     (("cheapest", "best price", "lowest price", "best deal"), _intent_cheapest_supplier),
     (("suppliers", "vendors", "supplier list", "who supplies"), _intent_supplier_list),
     (("waste", "wasted", "discarded", "thrown out", "spoilage"), _intent_waste_report),
+    (("sales", "selling", "trend"), _intent_sales_trend),
     (("what's in", "items in", "show me", "category"), _intent_items_by_category),
     (("categories", "category list", "what categories"), _intent_list_categories),
     (("how many items", "how many products", "item count", "number of items", "total items", "count"), _intent_count_items),
