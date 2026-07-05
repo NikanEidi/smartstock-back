@@ -176,6 +176,22 @@ def seed_database():
         db.demand_forecasts.insert_many(sample_forecasts)
         print("Demand Forecasts AI analytical collection seeded.")
 
+        # 7. Waste Log Collection: Records discarded stock for analytics (SRS Section 5.2.6)
+        db.waste_log.drop()
+        sample_waste = [
+            {
+                "log_id": 1,
+                "item_id": 101,
+                "item_name": "Fresh Tomatoes",
+                "quantity": 5.50,
+                "reason": "spoilage",
+                "logged_by": "nikan@smartstock.com",
+                "timestamp": datetime.now(timezone.utc)
+            }
+        ]
+        db.waste_log.insert_many(sample_waste)
+        print("Waste Log collection seeded.")
+
         print("\nDatabase architecture setup and mocking completed successfully.")
 
     except Exception as e:

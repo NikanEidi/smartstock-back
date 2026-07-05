@@ -1289,6 +1289,60 @@ class TestIntegration:
         assert delete_response.status_code == 200
 
 
+class TestWasteLog:
+    """Test suite for POST and GET /api/waste."""
+
+    def test_log_waste_success(self, client, mock_db, mock_user, valid_token):
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.inventory_items.find_one.return_value = {
+            "item_id": 101, "item_name": "Fresh Tomatoes"
+        }
+        mock_db.waste_log.count_documents.return_value = 0
+
+        response = client.post('/api/waste',
+                               json={"item_id": 101, "quantity": 5.5, "reason": "spoilage"},
+                               headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 201
+        data = json.loads(response.data)
+        assert data["log_id"] == 1
+        mock_db.waste_log.insert_one.assert_called_once()
+
+    def test_log_waste_missing_fields(self, client, mock_db, mock_user, valid_token):
+        mock_db.users.find_one.return_value = mock_user
+        response = client.post('/api/waste',
+                               json={"item_id": 101},
+                               headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 400
+
+    def test_log_waste_item_not_found(self, client, mock_db, mock_user, valid_token):
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.inventory_items.find_one.return_value = None
+        response = client.post('/api/waste',
+                               json={"item_id": 999, "quantity": 1},
+                               headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 404
+
+    def test_log_waste_no_auth(self, client, mock_db):
+        response = client.post('/api/waste', json={"item_id": 101, "quantity": 1})
+        assert response.status_code == 401
+
+    def test_get_waste_log_success(self, client, mock_db, mock_user, valid_token):
+        mock_db.users.find_one.return_value = mock_user
+        mock_db.waste_log.find.return_value.sort.return_value = [
+            {"log_id": 1, "item_name": "Fresh Tomatoes", "quantity": 5.5, "reason": "spoilage"},
+        ]
+        response = client.get('/api/waste',
+                              headers={"Authorization": f"Bearer {valid_token}"})
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert len(data) == 1
+        assert data[0]["item_name"] == "Fresh Tomatoes"
+
+    def test_get_waste_log_no_auth(self, client, mock_db):
+        response = client.get('/api/waste')
+        assert response.status_code == 401
+
+
 class TestIntentModel:
     """Unit tests for the level-2 TF-IDF + cosine intent classifier."""
 
