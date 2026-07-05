@@ -11,15 +11,16 @@ FALLBACK = ("I can help with stock levels and low-stock alerts. "
             "Try asking what's running low or how much of an item is in stock.")
 
 def _find_named_item(items, text):
-    """Match an item by its full name, then by any distinctive name word."""
+    """Match an item by full name, then by a name word (allowing plural/prefix)."""
     for item in items:
         if item["item_name"].lower() in text:
             return item
-    words = set(re.findall(r"[a-z0-9]+", text))
+    words = [w for w in re.findall(r"[a-z0-9]+", text) if len(w) >= 3]
     for item in items:
-        name_words = re.findall(r"[a-z0-9]+", item["item_name"].lower())
-        if any(word in words for word in name_words if len(word) >= 3):
-            return item
+        name_words = [w for w in re.findall(r"[a-z0-9]+", item["item_name"].lower()) if len(w) >= 3]
+        for name_word in name_words:
+            if any(w == name_word or w.startswith(name_word) or name_word.startswith(w) for w in words):
+                return item
     return None
 
 def _intent_low_stock(db, message):

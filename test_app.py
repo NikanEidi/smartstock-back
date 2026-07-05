@@ -372,6 +372,15 @@ class TestNLPAssistant:
         assert response.status_code == 200
         return json.loads(response.data)
 
+    def test_chat_item_quantity_partial_name(self, client, mock_db):
+        """A singular/partial item name still resolves (tomato -> Fresh Tomatoes)."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Fresh Tomatoes", "quantity": 120},
+        ]
+        data = self._ask(client, "how much tomato do we have?")
+        assert data["source"] == "rules"
+        assert "Fresh Tomatoes: 120" in data["response"]
+
     def test_chat_expiring_soon(self, client, mock_db):
         """Expiring question lists items sorted by expiry date."""
         mock_db.inventory_items.find.return_value = [
