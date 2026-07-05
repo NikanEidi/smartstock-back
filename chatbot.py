@@ -7,6 +7,8 @@ will sit behind these rules once a rule misses.
 """
 import re
 
+import intent_model
+
 FALLBACK = ("I can help with stock levels and low-stock alerts. "
             "Try asking what's running low or how much of an item is in stock.")
 
@@ -169,6 +171,23 @@ CHAT_RULES = [
     (("help", "what can you do", "commands", "how do you work"), _intent_help),
 ]
 
+# Maps an intent name (from intents.json) to the handler that answers it.
+INTENT_HANDLERS = {
+    "low_stock": _intent_low_stock,
+    "item_quantity": _intent_item_quantity,
+    "expiring_soon": _intent_expiring_soon,
+    "cheapest_supplier": _intent_cheapest_supplier,
+    "supplier_list": _intent_supplier_list,
+    "waste_report": _intent_waste_report,
+    "sales_trend": _intent_sales_trend,
+    "items_by_category": _intent_items_by_category,
+    "list_categories": _intent_list_categories,
+    "count_items": _intent_count_items,
+    "list_items": _intent_list_items,
+    "greeting": _intent_greeting,
+    "help": _intent_help,
+}
+
 def _match_rule(db, message):
     text = message.lower()
     # Single-word keywords match whole words; multi-word keywords match phrases.
@@ -184,8 +203,20 @@ def _match_rule(db, message):
     return None
 
 def answer(db, message):
-    """Return the assistant reply for a user message as a response dict."""
+    """Return the assistant reply for a user message as a response dict.
+
+    Level 1 tries fast keyword rules; on a miss the level-2 TF-IDF model
+    classifies the intent and the same handler produces the answer.
+    """
     reply = _match_rule(db, message)
     if reply:
         return {"response": reply, "source": "rules"}
+
+    intent, score = intent_model.classify(message)
+    handler = INTENT_HANDLERS.get(intent)
+    if handler:
+        reply = handler(db, message.lower())
+        if reply:
+            return {"response": reply, "source": "model"}
+
     return {"response": FALLBACK, "source": "fallback"}

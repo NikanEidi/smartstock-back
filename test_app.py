@@ -482,6 +482,12 @@ class TestNLPAssistant:
         assert "Fresh Tomatoes" in data["response"]
         assert "up" in data["response"]
 
+    def test_chat_model_level_two(self, client):
+        """A phrase the rules miss is caught by the level-2 model (source=model)."""
+        data = self._ask(client, "how are you")
+        assert data["source"] == "model"
+        assert "Hi!" in data["response"]
+
     def test_chat_greeting(self, client):
         """Greeting returns a friendly welcome without touching the db."""
         data = self._ask(client, "hello")

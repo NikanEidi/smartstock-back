@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 _DATA_PATH = os.path.join(os.path.dirname(__file__), "intents.json")
-DEFAULT_THRESHOLD = 0.3
+DEFAULT_THRESHOLD = 0.5
 
 def _load(path=_DATA_PATH):
     """Build the TF-IDF matrix and parallel intent labels from the dataset."""
