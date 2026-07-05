@@ -297,9 +297,9 @@ class TestLogout:
 class TestNLPAssistant:
     """Test suite for POST /api/chat endpoint."""
 
-    def test_chat_with_message(self, client):
-        """Test chat endpoint with a message."""
-        payload = {"message": "What is the current inventory?"}
+    def test_chat_unmatched_falls_back(self, client):
+        """A message that matches no rule returns the fallback reply."""
+        payload = {"message": "tell me a joke"}
 
         response = client.post('/api/chat',
                                json=payload,
@@ -307,9 +307,37 @@ class TestNLPAssistant:
         assert response.status_code == 200
         data = json.loads(response.data)
         assert "response" in data
-        assert "source" in data
-        assert "Operations NLP Architecture" in data["source"]
-        assert "What is the current inventory?" in data["response"]
+        assert data["source"] == "fallback"
+
+    def test_chat_low_stock_intent(self, client, mock_db):
+        """A low-stock question lists items at or below their threshold."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Olive Oil", "quantity": 3, "minimum_threshold": 5},
+            {"item_name": "Tomatoes", "quantity": 50, "minimum_threshold": 10},
+        ]
+
+        response = client.post('/api/chat',
+                               json={"message": "what is running low?"},
+                               content_type='application/json')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["source"] == "rules"
+        assert "Olive Oil" in data["response"]
+        assert "Tomatoes" not in data["response"]
+
+    def test_chat_item_quantity_intent(self, client, mock_db):
+        """An item-quantity question reports that item's current stock."""
+        mock_db.inventory_items.find.return_value = [
+            {"item_name": "Olive Oil", "quantity": 15},
+        ]
+
+        response = client.post('/api/chat',
+                               json={"message": "how much olive oil do we have?"},
+                               content_type='application/json')
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["source"] == "rules"
+        assert "Olive Oil: 15" in data["response"]
 
     def test_chat_empty_message(self, client):
         """Test chat endpoint with empty message."""
