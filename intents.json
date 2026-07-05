@@ -1,0 +1,98 @@
+{
+  "low_stock": [
+    "what's running low",
+    "which items are low on stock",
+    "show me low stock items",
+    "anything below the threshold",
+    "what do i need to restock",
+    "which products are almost out",
+    "low inventory alert"
+  ],
+  "item_quantity": [
+    "how much olive oil do we have",
+    "how many tomatoes are in stock",
+    "current stock of onions",
+    "quantity of flour left",
+    "do we have enough cheese",
+    "stock level for chicken"
+  ],
+  "expiring_soon": [
+    "what is expiring soon",
+    "which items expire this week",
+    "show me items going bad",
+    "closest expiry dates",
+    "what's about to expire",
+    "shelf life warnings"
+  ],
+  "cheapest_supplier": [
+    "cheapest supplier for tomatoes",
+    "who has the best price on olive oil",
+    "lowest price for onions",
+    "best deal on flour",
+    "which vendor is cheapest for cheese",
+    "compare supplier prices for chicken"
+  ],
+  "supplier_list": [
+    "who are our suppliers",
+    "list all vendors",
+    "show me the suppliers",
+    "which suppliers do we work with",
+    "supplier directory"
+  ],
+  "waste_report": [
+    "how much waste did we have",
+    "total food waste this month",
+    "how much have we discarded",
+    "waste report",
+    "how much spoilage",
+    "what did we throw out"
+  ],
+  "sales_trend": [
+    "how are tomato sales",
+    "sales trend for olive oil",
+    "is chicken selling well",
+    "what's the demand trend for onions",
+    "how are sales going for cheese"
+  ],
+  "items_by_category": [
+    "what's in produce",
+    "show me items in groceries",
+    "list products in the dairy category",
+    "which items are in beverages",
+    "what do we have under produce"
+  ],
+  "list_categories": [
+    "what categories do we have",
+    "list all categories",
+    "show me the item categories",
+    "how are items categorized"
+  ],
+  "count_items": [
+    "how many items do we have",
+    "total number of products",
+    "item count",
+    "how many skus in inventory",
+    "count of all items"
+  ],
+  "list_items": [
+    "list all items",
+    "what items do we have",
+    "show me the full inventory",
+    "what's in stock",
+    "show all products"
+  ],
+  "greeting": [
+    "hi",
+    "hello",
+    "hey there",
+    "good morning",
+    "how are you"
+  ],
+  "help": [
+    "what can you do",
+    "help",
+    "how do you work",
+    "what can you help me with",
+    "show me commands"
+  ]
+}
