@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 _DATA_PATH = os.path.join(os.path.dirname(__file__), "intents.json")
-DEFAULT_THRESHOLD = 0.5
+DEFAULT_THRESHOLD = 0.4
 
 def _load(path=_DATA_PATH):
     """Build the TF-IDF matrix and parallel intent labels from the dataset."""
@@ -24,7 +24,9 @@ def _load(path=_DATA_PATH):
         for example in examples:
             phrases.append(example)
             labels.append(intent)
-    vectorizer = TfidfVectorizer()
+    # Drop English stop words so filler ("tell me", "do we") doesn't pull
+    # off-topic queries toward an intent; this sharpens precision.
+    vectorizer = TfidfVectorizer(stop_words="english")
     matrix = vectorizer.fit_transform(phrases)
     return vectorizer, matrix, labels
 
