@@ -68,7 +68,7 @@ stay independent of the Flask app and easy to test.
 1. Clone the repository and navigate to the project folder:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/NikanEidi/smartstock-back.git
 cd smartstock-back
 
 ```
