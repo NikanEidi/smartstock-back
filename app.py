@@ -428,6 +428,52 @@ def get_item_supplier_prices(item_id):
     except Exception as e:
         return jsonify({"error": f"Failed to retrieve supplier prices: {str(e)}"}), 500
 
+# Core Waste Log Endpoints
+
+@app.route('/api/waste', methods=['POST'])
+@token_required
+def log_waste(current_user):
+    """
+    Records a discarded inventory item in the waste log.
+    Expects item_id and quantity; stamps the logging user and timestamp.
+    """
+    try:
+        data = request.json
+        if not data or "item_id" not in data or "quantity" not in data:
+            return jsonify({"error": "Missing required fields (item_id, quantity)"}), 400
+
+        # Resolve the item name so the log reads well without a later join
+        item = db.inventory_items.find_one({"item_id": data["item_id"]}, {"_id": 0})
+        if not item:
+            return jsonify({"error": "Item not found"}), 404
+
+        next_id = db.waste_log.count_documents({}) + 1
+        entry = {
+            "log_id": next_id,
+            "item_id": data["item_id"],
+            "item_name": item["item_name"],
+            "quantity": data["quantity"],
+            "reason": data.get("reason", "unspecified"),
+            "logged_by": current_user["email"],
+            "timestamp": datetime.now(timezone.utc)
+        }
+        db.waste_log.insert_one(entry)
+        return jsonify({"message": "Waste logged successfully", "log_id": next_id}), 201
+    except Exception as e:
+        return jsonify({"error": f"Failed to log waste: {str(e)}"}), 500
+
+@app.route('/api/waste', methods=['GET'])
+@token_required
+def get_waste_log(current_user):
+    """
+    Returns every waste log entry, newest first.
+    """
+    try:
+        entries = list(db.waste_log.find({}, {"_id": 0}).sort("timestamp", -1))
+        return jsonify(entries), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to retrieve waste log: {str(e)}"}), 500
+
 if __name__ == '__main__':
     runtime_port = int(os.getenv("PORT", 8000))
     # Execute runtime microserver on development configuration flags

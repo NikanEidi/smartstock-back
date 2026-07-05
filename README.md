@@ -183,6 +183,11 @@ The alerts endpoint responds with a count and the list of flagged items, ready f
 * `POST /api/chat` - Natural language operational assistant. Level 1 rule-based intent matching over live data, covering low stock, item quantity, item count, listing items/categories, items by category, suppliers, cheapest price, expiring items, sales trends, waste totals, plus greeting/help. When the rules miss, a level-2 TF-IDF + cosine-similarity model (`intent_model.py`, trained on `intents.json`) classifies the intent and the same handler answers.
 * `POST /api/forecast` - Demand forecasting endpoint. Target for the scikit-learn time-series engine (currently returns a mocked prediction schema).
 
+### Waste Log
+
+* `POST /api/waste` - Record a discarded item (Requires Auth). Expects `item_id` and `quantity`, plus an optional `reason`; the backend resolves the item name and stamps the logging user and timestamp.
+* `GET /api/waste` - Retrieve every waste log entry, newest first (Requires Auth).
+
 ---
 
 ## Deployment
