@@ -157,7 +157,7 @@ The alerts endpoint responds with a count and the list of flagged items, ready f
 
 ### AI Modules
 
-* `POST /api/chat` - Natural language operational assistant. Target for the upcoming Gemma NLP integration (currently returns a mocked payload receipt).
+* `POST /api/chat` - Natural language operational assistant. Level 1 rule-based intent matching over live inventory data (low-stock alerts, item quantity). A model layer will sit behind the rules next.
 * `POST /api/forecast` - Demand forecasting endpoint. Target for the scikit-learn time-series engine (currently returns a mocked prediction schema).
 
 ---

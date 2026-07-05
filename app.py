@@ -197,19 +197,66 @@ def logout(current_user):
 
 # Core AI Module Webhooks and Endpoints
 
+# NLP assistant intent rules (level 1)
+# Each rule pairs trigger keywords with a handler that reads live data
+# and returns a natural-language answer. The model layer (level 2) will
+# sit behind these rules once a rule misses.
+
+def _intent_low_stock(db, message):
+    """Report every item at or below its configured threshold."""
+    items = list(db.inventory_items.find(
+        {"minimum_threshold": {"$ne": None}}, {"_id": 0}
+    ))
+    low = [
+        item for item in items
+        if item.get("quantity") is not None
+        and item["quantity"] <= item["minimum_threshold"]
+    ]
+    if not low:
+        return "Everything is above its minimum threshold right now."
+    names = ", ".join(item["item_name"] for item in low)
+    return f"{len(low)} item(s) at or below threshold: {names}."
+
+def _intent_item_quantity(db, message):
+    """Report the current quantity of an item named in the message."""
+    items = list(db.inventory_items.find({}, {"_id": 0}))
+    for item in items:
+        if item["item_name"].lower() in message:
+            return f"{item['item_name']}: {item['quantity']} in stock."
+    return None
+
+# Ordered rules: first keyword hit whose handler returns an answer wins.
+CHAT_RULES = [
+    (("low", "out of stock", "threshold", "alert", "running out"), _intent_low_stock),
+    (("how much", "how many", "quantity", "stock of"), _intent_item_quantity),
+]
+
+def _match_chat_rule(db, message):
+    text = message.lower()
+    for keywords, handler in CHAT_RULES:
+        if any(keyword in text for keyword in keywords):
+            answer = handler(db, text)
+            if answer:
+                return answer
+    return None
+
 @app.route('/api/chat', methods=['POST'])
 def nlp_assistant():
     """
-    Processes incoming natural language operational inquiries.
-    Target for the upcoming integration of the lightweight local Gemma model.
+    Answers operational questions from live inventory data.
+    Level 1 is rule-based; the model layer will fall in behind it.
     """
     payload = request.json or {}
     user_query = payload.get("message", "")
-    
-    # Mocking Gemma framework generation pipeline for prototype phase validation
+
+    answer = _match_chat_rule(db, user_query)
+    if answer:
+        return jsonify({"response": answer, "source": "rules"}), 200
+
     return jsonify({
-        "response": f"Gemma Local Model Payload Receipt Verification. Received: '{user_query}'. Parsing operations manual context...",
-        "source": "Operations NLP Architecture"
+        "response": "I can help with stock levels and low-stock alerts. "
+                    "Try asking what's running low or how much of an item is in stock.",
+        "source": "fallback"
     }), 200
 
 @app.route('/api/forecast', methods=['POST'])
