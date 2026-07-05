@@ -41,6 +41,7 @@ While the frontend delivers a seamless BYOD (Bring Your Own Device) experience, 
 smartstock-back/
 ├── app.py              # Flask app: routes, db connection, auth middleware
 ├── chatbot.py          # /api/chat level-1 rule-based intent layer
+├── forecast.py         # /api/forecast RandomForest demand pipeline
 ├── seed.py             # Seed collections, indexes, and mock data
 ├── prepare_ai_data.py  # Build historical_data from the Kaggle dataset
 ├── test_app.py         # pytest suite (mocks the database)
