@@ -7,6 +7,7 @@ as an argument so it stays easy to test.
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+from datetime import datetime, timezone
 
 def forecast_demand(db, item_id):
     """Return a forecast dict for item_id, or None when there is no history."""
@@ -56,6 +57,16 @@ def forecast_demand(db, item_id):
     last_days_since = (historical_data[-1]["date"] - first_date).days
     target_days = np.array([[last_days_since + 7]])
     predicted_demand = model.predict(target_days)[0]
+
+    # Persist the calculated metrics to the analytical database collection
+    forecast_entry = {
+        "forecast_id": int(datetime.now(timezone.utc).timestamp()),
+        "item_id": item_id,
+        "predicted_demand": round(float(predicted_demand), 2),
+        "confidence_level": float(confidence_level),
+        "forecast_date": datetime.now(timezone.utc)
+    }
+    db.demand_forecasts.insert_one(forecast_entry)
 
     # Mocking statistical engine return schema with required predictive attributes
     return {
