@@ -13,12 +13,16 @@ def prepare_data():
     print("Reading data/train.csv...")
     df = pd.read_csv("data/train.csv")
     
-    # Filter the DataFrame for center_id == 55 and meal_id in [1885, 1993, 2539, 1248, 1062]
+    # Filter the DataFrame for center_id == 55 and selected meal_ids mapped to inventory items
     # Filter for the last 30 weeks of data (week > 115)
-    df = df[(df["center_id"] == 55) & (df["meal_id"].isin([1885, 1993, 2539, 1248, 1062])) & (df["week"] > 115)].copy()
+    df = df[(df["center_id"] == 55) & (df["meal_id"].isin([1885, 1993, 2539, 1248, 1062, 2631, 1778, 2707, 1207, 1230, 2322, 2290, 1727, 1109, 2577])) & (df["week"] > 115)].copy()
     
     # Map meal_id to item_id
-    item_map = {1885: 101, 1993: 102, 2539: 103, 1248: 104, 1062: 105}
+    item_map = {
+        1885: 101, 1993: 102, 2539: 103, 1248: 104, 1062: 105,
+        2631: 106, 1778: 107, 2707: 108, 1207: 109, 1230: 110,
+        2322: 111, 2290: 112, 1727: 113, 1109: 114, 2577: 115
+    }
     df["item_id"] = df["meal_id"].map(item_map)
     
     # Map the Kaggle week integer to a real datetime object (relative to today, timezone.utc)
