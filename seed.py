@@ -88,6 +88,86 @@ def seed_database():
                 "quantity": 20.00,
                 "minimum_threshold": 20.00,
                 "expiry_date": datetime(2026, 9, 1, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 106,
+                "item_name": "Atlantic Salmon",
+                "category": "Seafood",
+                "quantity": 12.50,
+                "minimum_threshold": 15.00,
+                "expiry_date": datetime(2026, 7, 18, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 107,
+                "item_name": "Basmati Rice",
+                "category": "Groceries",
+                "quantity": 250.00,
+                "minimum_threshold": 50.00,
+                "expiry_date": None
+            },
+            {
+                "item_id": 108,
+                "item_name": "Whole Milk",
+                "category": "Dairy",
+                "quantity": 22.00,
+                "minimum_threshold": 20.00,
+                "expiry_date": datetime(2026, 7, 25, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 109,
+                "item_name": "Garlic",
+                "category": "Produce",
+                "quantity": 40.00,
+                "minimum_threshold": 10.00,
+                "expiry_date": datetime(2026, 9, 15, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 110,
+                "item_name": "Unsalted Butter",
+                "category": "Dairy",
+                "quantity": 8.50,
+                "minimum_threshold": 10.00,
+                "expiry_date": datetime(2026, 8, 5, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 111,
+                "item_name": "Beef Ribeye",
+                "category": "Meat",
+                "quantity": 30.00,
+                "minimum_threshold": 25.00,
+                "expiry_date": datetime(2026, 7, 22, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 112,
+                "item_name": "Pasta (Penne)",
+                "category": "Groceries",
+                "quantity": 180.00,
+                "minimum_threshold": 40.00,
+                "expiry_date": None
+            },
+            {
+                "item_id": 113,
+                "item_name": "Romaine Lettuce",
+                "category": "Produce",
+                "quantity": 18.00,
+                "minimum_threshold": 20.00,
+                "expiry_date": datetime(2026, 7, 16, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 114,
+                "item_name": "White Sugar",
+                "category": "Groceries",
+                "quantity": 85.00,
+                "minimum_threshold": 20.00,
+                "expiry_date": None
+            },
+            {
+                "item_id": 115,
+                "item_name": "Eggs (Dozen)",
+                "category": "Dairy",
+                "quantity": 25.00,
+                "minimum_threshold": 15.00,
+                "expiry_date": datetime(2026, 8, 1, tzinfo=timezone.utc)
             }
         ]
         db.inventory_items.insert_many(sample_items)
