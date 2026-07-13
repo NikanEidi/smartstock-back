@@ -63,6 +63,31 @@ def seed_database():
                 "quantity": 15.00,
                 "minimum_threshold": 5.00,
                 "expiry_date": None
+            },
+            # Inject diverse stock levels to test threshold logic and alert generation
+            {
+                "item_id": 103,
+                "item_name": "Cheddar Cheese",
+                "category": "Dairy",
+                "quantity": 8.00,
+                "minimum_threshold": 15.00,
+                "expiry_date": datetime(2026, 8, 10, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 104,
+                "item_name": "Chicken Breast",
+                "category": "Meat",
+                "quantity": 45.00,
+                "minimum_threshold": 20.00,
+                "expiry_date": datetime(2026, 7, 20, tzinfo=timezone.utc)
+            },
+            {
+                "item_id": 105,
+                "item_name": "Red Onions",
+                "category": "Produce",
+                "quantity": 20.00,
+                "minimum_threshold": 20.00,
+                "expiry_date": datetime(2026, 9, 1, tzinfo=timezone.utc)
             }
         ]
         db.inventory_items.insert_many(sample_items)
