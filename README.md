@@ -8,9 +8,9 @@
 
 ## Deployment Status
 
-![124 Tests Passing](Assets/BackendPassTests.png)
+![124 Tests Passing](assets/BackendPassTests.png)
 
-![Backend Live on Render](Assets/CurlTest.png)
+![Backend Live on Render](assets/CurlTest.png)
 
 > Live API: `https://smartstock-back-hr9z.onrender.com`
 
@@ -143,7 +143,7 @@ The backend ships with a full `pytest` suite of **124 tests** covering authentic
 python -m pytest -v
 ```
 
-![Test Suite — 124 Passed](Assets/BackendPassTests.png)
+![Test Suite — 124 Passed](assets/BackendPassTests.png)
 
 *Note: Use `python -m pytest` (rather than a bare `pytest`) to ensure the suite runs inside the active virtual environment. The token fixtures read `JWT_SECRET` directly from the app, so tests pass regardless of the secret configured in your environment.*
 
