@@ -6,9 +6,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch, MagicMock
 from app import app, token_required, JWT_SECRET
 
-# ============================================================================
-# FIXTURES AND SETUP
-# ============================================================================
+
 
 @pytest.fixture
 def client():
@@ -66,9 +64,9 @@ def mock_inventory_item():
         "category": "Electronics"
     }
 
-# ============================================================================
+
 # HEALTH CHECK ENDPOINT TESTS
-# ============================================================================
+
 
 class TestHealthCheck:
     """Test suite for GET / health check endpoint."""
@@ -91,9 +89,9 @@ class TestHealthCheck:
             data = json.loads(response.data)
             assert data["database"] == "Disconnected"
 
-# ============================================================================
+
 # AUTHENTICATION ENDPOINTS TESTS
-# ============================================================================
+
 
 class TestUserCreation:
     """Test suite for POST /api/users user creation endpoint."""
@@ -161,9 +159,9 @@ class TestUserCreation:
         data = json.loads(response.data)
         assert "Missing required fields" in data["error"]
 
-# ============================================================================
+
 # LOGIN ENDPOINT TESTS
-# ============================================================================
+
 
 class TestLogin:
     """Test suite for POST /api/auth/login endpoint."""
@@ -244,9 +242,9 @@ class TestLogin:
         response = client.post('/api/auth/login')
         assert response.status_code == 500
 
-# ============================================================================
+
 # LOGOUT ENDPOINT TESTS
-# ============================================================================
+
 
 class TestLogout:
     """Test suite for POST /api/auth/logout endpoint."""
@@ -290,9 +288,8 @@ class TestLogout:
                                headers={"Authorization": "InvalidFormat token"})
         assert response.status_code == 401
 
-# ============================================================================
+
 # NLP CHAT ENDPOINT TESTS
-# ============================================================================
 
 class TestNLPAssistant:
     """Test suite for POST /api/chat endpoint."""
@@ -503,9 +500,9 @@ class TestNLPAssistant:
         assert data["source"] == "rules"
         assert "low stock" in data["response"]
 
-# ============================================================================
+
 # FORECAST ENDPOINT TESTS
-# ============================================================================
+
 
 def _build_history(item_id=42, points=12):
     """Build a mock historical_data series for the forecast pipeline."""
@@ -576,9 +573,9 @@ class TestDemandForecast:
                                content_type='application/json')
         assert response.status_code == 401
 
-# ============================================================================
+
 # INVENTORY ENDPOINTS TESTS
-# ============================================================================
+
 
 class TestGetAllInventory:
     """Test suite for GET /api/inventory endpoint."""
@@ -869,9 +866,9 @@ class TestDeleteInventoryItem:
             assert response.status_code == 200
 
 
-# ============================================================================
+
 # THRESHOLD CONFIGURATION ENDPOINT TESTS
-# ============================================================================
+
 
 class TestConfigureThreshold:
     """Test suite for PUT /api/inventory/<int:item_id>/threshold endpoint."""
@@ -940,9 +937,9 @@ class TestConfigureThreshold:
         assert response.status_code == 401
 
 
-# ============================================================================
+
 # STOCK ALERT ENDPOINT TESTS
-# ============================================================================
+
 
 class TestStockAlerts:
     """Test suite for GET /api/inventory/alerts endpoint."""
@@ -1010,9 +1007,9 @@ class TestStockAlerts:
         assert data["alert_count"] == 2
 
 
-# ============================================================================
+
 # USER MANAGEMENT ENDPOINTS TESTS (Owner-only)
-# ============================================================================
+
 
 class TestListUsers:
     """Test suite for GET /api/users endpoint (Owner-only)."""
@@ -1105,9 +1102,9 @@ class TestDeleteUser:
         response = client.delete('/api/users/other@example.com')
         assert response.status_code == 401
 
-# ============================================================================
+
 # SUPPLIER SOURCING & PRICE COMPARISON ENDPOINT TESTS
-# ============================================================================
+
 
 class TestGetSuppliers:
     """Test suite for GET /api/suppliers endpoint."""
@@ -1194,9 +1191,9 @@ class TestItemSupplierPrices:
         assert data["offers"][0]["is_lowest"] is True
 
 
-# ============================================================================
+
 # ERROR HANDLING AND EDGE CASES
-# ============================================================================
+
 
 class TestErrorHandling:
     """Test suite for general error handling."""
@@ -1219,9 +1216,9 @@ class TestErrorHandling:
         assert response.status_code == 500
 
 
-# ============================================================================
+
 # INTEGRATION TESTS
-# ============================================================================
+
 
 class TestIntegration:
     """Integration tests for complete workflows."""

@@ -15,9 +15,9 @@ import chatbot
 import intent_model
 
 
-# ---------------------------------------------------------------------------
-# Level-2 classifier: held-out paraphrases (deliberately NOT in intents.json)
-# ---------------------------------------------------------------------------
+
+
+
 
 HELD_OUT = {
     "low_stock": "anything we are short on",
@@ -63,9 +63,9 @@ def test_classifier_empty_message():
     assert intent_model.classify("") == (None, 0.0)
 
 
-# ---------------------------------------------------------------------------
+
 # answer() routing: level-1 rules, level-2 model, and fallback
-# ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def db():
